@@ -11,18 +11,11 @@ jsonFileName = 'securedrop.json'
 sel = selectors.DefaultSelector()
 
 
-class ClientData:
-    name: str
-    email: str
-    hashed_pass: int
-    contacts: []
-
-    def __init__(self, name, email, hashed_pass, contacts):
-        self.name = name
-        self.email = email
-        self.hashed_pass = hashed_pass
-        self.contacts = contacts
-
+class client_data:
+    name = str()
+    email = str()
+    hash = int()
+    contacts = []
 
 # hashing algorithm
 def adler32(password):
@@ -67,20 +60,23 @@ def register_client():
 def login_client(client_data):
     email = input("Enter Email Address: ")
     pw = getpass.getpass(prompt='Enter Password: ')
-    return email == client_data.email and adler32(pw) == client_data.hashed_pass
+    return email == client_data.email and adler32(pw) == client_data.hash
 
 
 def get_client_data():
     with open(jsonFileName) as file:
         jsonDB = json.load(file)
-        data = ClientData(name=jsonDB["name"], email=jsonDB["email"], hashed_pass=jsonDB["hash"],
-                          contacts=jsonDB["contacts"])
+        data = client_data()
+        data.name = jsonDB["name"]
+        data.email = jsonDB["email"]
+        data.hash = jsonDB["hash"]
+        data.contacts = jsonDB["contacts"]
         return data
 
 
 def connect_to_server():
     host = '127.0.0.1'
-    port = 6969
+    port = 1334
     server_addr = (host, port)
     print("Attempting to connect to server: ", server_addr)
 
@@ -93,10 +89,10 @@ def connect_to_server():
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     wrapped_socket = context.wrap_socket(s, server_side=False, server_hostname='sherron')
-    wrapped_socket.setblocking(False)
+    wrapped_socket.setblocking(True)
 
     try:
-        wrapped_socket.connect_ex(server_addr)
+        wrapped_socket.connect((host, port))
         events = selectors.EVENT_READ | selectors.EVENT_WRITE
         data = types.SimpleNamespace(
             recv_total=0,
@@ -128,7 +124,7 @@ def ping_server(key, email):
         data.outb = data.outb[sent:]
         return True
     except:
-        # return False
+        #return False
         return True
 
 
@@ -150,25 +146,21 @@ def run_add(client_data):
     json_dict = dict()
     json_dict["name"] = client_data.name
     json_dict["email"] = client_data.email
-    json_dict["hash"] = client_data.hashed_pass
+    json_dict["hash"] = client_data.hash
     json_dict["contacts"] = client_data.contacts
 
     with open(jsonFileName, 'w') as file:
         json.dump(json_dict, file)
 
-
-# serialize the json object before sending to the server
-def serialize(s, json_dict):
+def send (s, client_data):
     try:
-        serialized = json.dumps(json_dict)
+        serialized = json.dumps(client_data)
     except True:
         s.send('%d\n' % len(serialized))
         s.sendall(serialized)
-    # send the contact[] to server from local json file, and runs the checks.
-    # checks if email is in contact list and if email of contact is on same port.
-
-
-# def run_list(s,client_data):
+    #send the contact[] to server from local json file, and runs the checks.
+    #checks if email is in contact list and if email of contact is on same port.
+#def run_list(s,client_data):
 
 
 def main_loop(client_data):
@@ -199,11 +191,9 @@ def main_loop(client_data):
             if text == 'help':
                 run_help()
 
-            if text == 'add':
+            elif text == 'add':
                 run_add(client_data)
 
-            elif text == 'list':
-                print("hello")
 
     except KeyboardInterrupt:
         print("caught keyboard interrupt, exiting")

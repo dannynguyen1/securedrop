@@ -11,8 +11,9 @@ sel = selectors.DefaultSelector()
 def accept_wrapper(sock):
     try:
         conn, addr = sock.accept()  # Should be ready to read
+        wrapped_socket = context.wrap_socket(conn, server_side=True)
+
         print("accepted connection from", addr)
-        wrapped_socket = context.wrap_socket(conn, server_side=False)
         wrapped_socket.setblocking(False)
         data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
         events = selectors.EVENT_READ | selectors.EVENT_WRITE
@@ -56,21 +57,21 @@ context.verify_mode = ssl.CERT_REQUIRED
 context.load_cert_chain(certfile=server_cert, keyfile=server_key)
 context.load_verify_locations(cafile=client_certs)
 
-lsock.bind((host, port))
-lsock.listen()
+bindsocket = socket.socket()
+bindsocket.bind((host, port))
+bindsocket.listen()
 print("listening on", (host, port))
-lsock.setblocking(False)
-sel.register(lsock, selectors.EVENT_READ, data=None)
+bindsocket.setblocking(False)
+sel.register(bindsocket, selectors.EVENT_READ, data=None)
 
 try:
     while True:
         events = sel.select(timeout=None)
         for key, mask in events:
-            if key.data is None:
-                accept_wrapper(key.fileobj)
-            else:
-                service_connection(key, mask)
+            accept_wrapper(key.fileobj)
+            break
 
+#                service_connection(key, mask)
 except KeyboardInterrupt:
     print("caught keyboard interrupt, exiting")
 finally:
